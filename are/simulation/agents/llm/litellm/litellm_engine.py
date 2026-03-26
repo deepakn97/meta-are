@@ -8,12 +8,14 @@
 import logging
 from typing import Any
 
+import litellm
 from litellm import completion
-from litellm.exceptions import APIError, AuthenticationError
 from litellm.types.utils import Choices, ModelResponse
 from pydantic import BaseModel
 
-from are.simulation.agents.llm.llm_engine import LLMEngine, LLMEngineException
+from are.simulation.agents.llm.exceptions import PromptTooLongException
+from are.simulation.agents.llm.llm_engine import LLMEngine
+from are.simulation.exceptions import FatalError, ServerError
 
 # TODO: Litellm should be agnostic to the agent or model. Remove this dependency.
 from are.simulation.agents.llm.types import MessageRole
@@ -113,6 +115,8 @@ Action:
                 api_base=self.model_config.endpoint,
                 api_key=self.model_config.api_key,
                 mock_response=self.mock_response,
+                retry_strategy="exponential_backoff_retry",
+                num_retries=10,
             )
 
             assert type(response) is ModelResponse
@@ -127,5 +131,24 @@ Action:
                 res = res.split(stop_token)[0]
 
             return res, None
-        except (AuthenticationError, APIError) as e:
-            raise LLMEngineException("Auth error in litellm.") from e
+        except Exception as e:
+            error_type = type(e).__name__
+            error_msg = f"{error_type}: {e}"
+
+            # Context window exceeded -> PromptTooLongException
+            if isinstance(e, litellm.ContextWindowExceededError):
+                raise PromptTooLongException(error_msg) from e
+
+            # Retryable/transient errors -> ServerError
+            if isinstance(e, (
+                litellm.RateLimitError,
+                litellm.InternalServerError,
+                litellm.ServiceUnavailableError,
+                litellm.APIConnectionError,
+                litellm.Timeout,
+                litellm.APIError,
+            )):
+                raise ServerError(error_msg) from e
+
+            # Everything else (auth, permission, bad request, etc.) -> FatalError
+            raise FatalError(error_msg) from e

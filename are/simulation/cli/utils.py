@@ -203,6 +203,9 @@ def handle_parameter_conflicts(
 def suppress_noisy_loggers() -> None:
     """Suppress noisy loggers that are commonly used in Meta Agents Research Environments CLIs."""
     logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
     logging.getLogger("are.simulation.validation.judge").setLevel(logging.WARNING)
     logging.getLogger("are.simulation.agents.default_agent").setLevel(logging.WARNING)
     logging.getLogger("are.simulation.environment").setLevel(logging.WARNING)

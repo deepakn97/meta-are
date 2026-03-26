@@ -269,6 +269,8 @@ class ErrorLog(BaseAgentLog):
     agent: str
 
     def get_content_for_llm(self) -> str | None:
+        if self.category == "ServerError":
+            return None
         return f"Error: {self.error}\nException: {self.exception}\nCategory: {self.category}"
 
     def get_type(self) -> str:

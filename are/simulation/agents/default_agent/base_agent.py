@@ -49,7 +49,7 @@ from are.simulation.agents.llm.exceptions import (
 )
 from are.simulation.agents.llm.types import MessageRole, MMObservation
 from are.simulation.agents.multimodal import Attachment, attachments_to_pil
-from are.simulation.exceptions import FatalError, InvalidActionAgentError, LoggedError
+from are.simulation.exceptions import FatalError, InvalidActionAgentError, LoggedError, ServerError
 from are.simulation.notification_system import BaseNotificationSystem
 from are.simulation.time_manager import TimeManager
 from are.simulation.tool_box import DEFAULT_TOOL_DESCRIPTION_TEMPLATE, Toolbox
@@ -252,6 +252,8 @@ class BaseAgent:
     """
     This agent is a ReAct loop on steroids.
     """
+
+    MAX_CONSECUTIVE_SERVER_ERRORS: int = 3
 
     def __init__(
         self,
@@ -773,6 +775,7 @@ class BaseAgent:
         self.stop_event.set()
 
     def execute_agent_loop(self) -> str | None | MMObservation:
+        consecutive_server_errors = 0
         while (
             self.termination_step.condition is not None
             and not self.termination_step.condition(self)
@@ -803,6 +806,7 @@ class BaseAgent:
 
                 # Execute the step()
                 self.step()
+                consecutive_server_errors = 0
 
                 if self.stop_event.is_set():
                     raise AgentStoppedException("Agent stopped.")
@@ -836,6 +840,15 @@ class BaseAgent:
                 self.log_error(e)
                 self.custom_state["running_state"] = RunningState.FAILED
                 break
+            except ServerError as e:
+                self.log_error(e)
+                consecutive_server_errors += 1
+                if consecutive_server_errors >= self.MAX_CONSECUTIVE_SERVER_ERRORS:
+                    self.logger.warning(
+                        f"Exiting agent loop after {consecutive_server_errors} "
+                        f"consecutive server errors: {e}"
+                    )
+                    break
             except Exception as e:
                 self.log_error(e)
             finally:
