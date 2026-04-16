@@ -1621,7 +1621,7 @@ requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = "==1.2.1" },
     { name = "click", specifier = "==8.1.8" },
     { name = "codespell", marker = "extra == 'dev'", specifier = "==2.4.1" },
-    { name = "datasets", specifier = "==4.0.0" },
+    { name = "datasets", specifier = ">=4.0.0" },
     { name = "debugpy", marker = "extra == 'dev'", specifier = "==1.8.12" },
     { name = "deepdiff", specifier = ">=8.6.1" },
     { name = "docstring-parser", specifier = "==0.16" },
